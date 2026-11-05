@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft, ArrowRight, ArrowUpRight, Bell, BookOpen, Check, CheckCheck,
-  ChevronDown, ChevronLeft, ChevronRight, Clock3, Dumbbell, Flame, History,
+  ChevronDown, ChevronLeft, ChevronRight, Clock3, Dumbbell, Flame, HelpCircle, History,
   LayoutGrid, ListFilter, Menu, MoreHorizontal, Play, Plus, Search, Settings2,
   StickyNote, Target, Timer, Trash2, TrendingUp, Trophy, X,
 } from 'lucide-react'
@@ -10,13 +10,17 @@ import { ExerciseArt } from './components/ExerciseArt'
 import { Modal } from './components/Modal'
 import { ProgramExplanation } from './components/ProgramExplanation'
 import { ExercisePrescription } from './components/ExercisePrescription'
+import { ExerciseMemory } from './components/ExerciseMemory'
+import { WorkoutDetails } from './components/WorkoutDetails'
+import { BackupManager } from './components/BackupManager'
+import { createSession, exerciseVariants, finishRecord, initialLogs, recoverSession, snapshotExercise, switchVariant } from './trainingHistory'
 import { weekdays } from './programInsights'
 import { LanguageSwitcher, matchesTranslatedSearch, useLanguage } from './i18n'
-import { catalog, clockTime, currentProgramName, duration, initialDays, programDescription, readStored, repTarget, saveStored, totalSets } from './data'
-import type { Day, Exercise, LoggedSet, Preferences, Session, WorkoutRecord } from './data'
+import { catalog, clockTime, commitStored, currentProgramName, duration, initialDays, programDescription, readStored, repTarget, saveStored, totalSets } from './data'
+import type { Day, Exercise, ExerciseVariant, LoggedSet, Preferences, RirValue, Session, WorkoutRecord } from './data'
 
 type Page = 'program' | 'library' | 'history'
-type Dialog = 'add' | 'preferences' | 'finish' | 'summary' | 'rename' | 'explanation' | null
+type Dialog = 'add' | 'preferences' | 'finish' | 'summary' | 'rename' | 'explanation' | 'backup' | null
 const muscleColors: Record<string, string> = { Quads: '#c3f47a', Hamstrings: '#a7c58a', Back: '#87a672', Biceps: '#687e5c', Triceps: '#4e6148', Core: '#3d4b39' }
 
 function App() {
@@ -25,8 +29,9 @@ function App() {
   const [selected, setSelected] = useState(() => readStored('selected', 3))
   const [page, setPage] = useState<Page>('program')
   const [preferences, setPreferences] = useState<Preferences>(() => readStored('preferences', { name: 'Alex', unit: 'kg', rest: 90 }))
-  const [session, setSession] = useState<Session | null>(() => readStored('session', null))
+  const [session, setSession] = useState<Session | null>(() => recoverSession(readStored<Session | null>('session', null), days, preferences.unit, readStored('program-name', currentProgramName), preferences.rest))
   const [history, setHistory] = useState<WorkoutRecord[]>(() => readStored('history', []))
+  const [storageError, setStorageError] = useState(false)
   const [dialog, setDialog] = useState<Dialog>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [exerciseMenu, setExerciseMenu] = useState<string | null>(null)
@@ -54,13 +59,13 @@ function App() {
   const elapsed = session ? Math.max(0, Math.floor((now - session.startedAt) / 1000)) : 0
   const restSeconds = restUntil ? Math.max(0, Math.ceil((restUntil - now) / 1000)) : 0
 
-  useEffect(() => saveStored('days', days), [days])
-  useEffect(() => saveStored('selected', selected), [selected])
-  useEffect(() => saveStored('preferences', preferences), [preferences])
-  useEffect(() => saveStored('session', session), [session])
-  useEffect(() => saveStored('history', history), [history])
-  useEffect(() => saveStored('program-name', programName), [programName])
-  useEffect(() => saveStored('custom-program-name', customProgramName), [customProgramName])
+  useEffect(() => { if (!saveStored('days', days)) setStorageError(true) }, [days])
+  useEffect(() => { if (!saveStored('selected', selected)) setStorageError(true) }, [selected])
+  useEffect(() => { if (!saveStored('preferences', preferences)) setStorageError(true) }, [preferences])
+  useEffect(() => { if (!saveStored('session', session)) setStorageError(true) }, [session])
+  useEffect(() => { if (!saveStored('history', history)) setStorageError(true) }, [history])
+  useEffect(() => { if (!saveStored('program-name', programName)) setStorageError(true) }, [programName])
+  useEffect(() => { if (!saveStored('custom-program-name', customProgramName)) setStorageError(true) }, [customProgramName])
   useEffect(() => {
     setNow(Date.now())
     const interval = setInterval(() => setNow(Date.now()), session ? 1000 : 60_000)
@@ -89,13 +94,23 @@ function App() {
       setPage('program'); setExpanded(Object.keys(session.logs)[0] ?? null)
       notify("Your workout is ready to continue."); return
     }
-    const logs = Object.fromEntries(day.exercises.map(e => [e.id, Array.from({ length: e.sets }, () => ({ weight: '', reps: String(e.reps), done: false }))]))
-    setSession({ dayId: day.id, name: day.name, startedAt: Date.now(), logs })
+    setSession(createSession(day, preferences.unit, programName, preferences.rest, history))
     setExpanded(day.exercises[0]?.id ?? null); setNow(Date.now())
     notify("Let’s make it a good one. Log your first set below.")
   }
   function updateSet(id: string, index: number, patch: Partial<LoggedSet>) {
-    setSession(current => current ? { ...current, logs: { ...current.logs, [id]: current.logs[id].map((s, i) => i === index ? { ...s, ...patch } : s) } } : null)
+    setSession(current => {
+      if (!current) return null
+      const updatedSets = current.logs[id].map((s, i) => {
+        if (i !== index) return s
+        const next = { ...s, ...patch }
+        if ('rir' in patch && patch.rir === undefined) {
+          delete next.rir
+        }
+        return next
+      })
+      return { ...current, logs: { ...current.logs, [id]: updatedSets } }
+    })
     if (patch.done) {
       const exercise = day.exercises.find(exercise => exercise.id === id)
       const rest = exercise?.rest ?? preferences.rest
@@ -105,13 +120,26 @@ function App() {
       if (rest === 0) setExpanded(day.exercises[day.exercises.findIndex(exercise => exercise.id === id) + 1]?.id ?? id)
     }
   }
+  function chooseVariant(exercise: Exercise, variant: ExerciseVariant) {
+    if (active && session.logs[exercise.id]?.some(set => set.done)) return
+    updateDay(current => ({ ...current, exercises: current.exercises.map(item => item.id === exercise.id ? { ...item, variantId: variant.id } : item) }))
+    if (active) setSession(current => current ? switchVariant(current, exercise, variant, preferences.rest, history) : null)
+  }
+  function noteExercise(id: string, note: string) {
+    setSession(current => current?.details ? { ...current, details: { ...current.details, snapshots: { ...current.details.snapshots, [id]: { ...current.details.snapshots[id], note } } } } : current)
+  }
   function addExercise(exercise: Exercise) {
     if (day.exercises.some(e => e.id === exercise.id)) return
     updateDay(d => ({ ...d, exercises: [...d.exercises, { ...exercise }] }))
-    if (active) setSession(current => current ? { ...current, logs: { ...current.logs, [exercise.id]: Array.from({ length: exercise.sets }, () => ({ weight: '', reps: String(exercise.reps), done: false })) } } : null)
+    if (active) setSession(current => {
+      if (!current?.details) return current
+      const snapshot = snapshotExercise(exercise, preferences.rest)
+      return { ...current, logs: { ...current.logs, [exercise.id]: initialLogs(snapshot, history, current.unit ?? preferences.unit) }, modes: { ...current.modes, [exercise.id]: snapshot.mode }, details: { ...current.details, snapshots: { ...current.details.snapshots, [exercise.id]: snapshot } } }
+    })
     notify('{exercise} added to {day}.', { exercise: exercise.name, day: day.name })
   }
   function removeExercise(id: string) {
+    if (active && session.logs[id]?.some(set => set.done)) return
     updateDay(d => ({ ...d, exercises: d.exercises.filter(e => e.id !== id) }))
     if (active) setSession(current => {
       if (!current) return null
@@ -122,13 +150,14 @@ function App() {
   }
   function finishSession() {
     if (!session) return
-    const completed = Object.values(session.logs).flat().filter(s => s.done)
-    const record: WorkoutRecord = {
-      id: crypto.randomUUID(), name: session.name, dayId: session.dayId, finishedAt: Date.now(),
-      seconds: elapsed, sets: completed.length, volume: Object.entries(session.logs).filter(([id]) => session.modes?.[id] !== 'seconds').flatMap(([, sets]) => sets).filter(set => set.done).reduce((volume, set) => volume + Number(set.weight) * Number(set.reps), 0),
-      unit: preferences.unit, exercises: Object.values(session.logs).filter(sets => sets.some(s => s.done)).length,
+    const record = finishRecord(session, elapsed)
+    const next = [record, ...history]
+    if (!commitStored({ history: next, session: null }).ok) {
+      setStorageError(true)
+      notify('Could not save the workout. Your session is still open; export a backup before closing the app.')
+      return
     }
-    setHistory(current => [record, ...current]); setSummary(record); setSession(null); setRestUntil(null); setExpanded(null); setDialog('summary')
+    setToast(null); setHistory(next); setSummary(record); setSession(null); setRestUntil(null); setExpanded(null); setDialog('summary')
   }
   const filteredExercises = catalog.filter(e => matchesTranslatedSearch(e.name, search) && (filter === 'All muscles' || e.muscle === filter))
   const weekStart = new Date(); weekStart.setHours(0, 0, 0, 0); weekStart.setDate(weekStart.getDate() - ((weekStart.getDay() + 6) % 7) + weekOffset * 7)
@@ -151,7 +180,7 @@ function App() {
       <div className="sidebar-bottom">
         <div className="motivation-card"><span className="motivation-icon"><TrendingUp size={20} /></span><h3>{t("Built one rep at a time.")}</h3><p>{t("Small steps. Consistent effort.")}<br />{t("A stronger you.")}</p><span className="motivation-line" /></div>
         <button className="preferences-button" onClick={() => setDialog('preferences')}><Settings2 size={17} />{t("Preferences")}</button>
-        <div className="sidebar-footer"><span className="online-dot" />{t("All changes saved locally")}</div>
+        <div className="sidebar-footer"><span className="online-dot" />{storageError ? t("Unsaved changes — download a backup") : t("All changes saved locally")}</div>
       </div>
     </aside>
 
@@ -162,6 +191,7 @@ function App() {
       </header>
 
       <main>
+        {storageError && <div className="persistence-warning" role="alert"><p>{t('Some changes could not be saved in this browser. Keep this page open and download a backup of your current data.')}</p><button className="secondary-button" onClick={() => setDialog('backup')}>{t('Backup and restore')}</button></div>}
         {page === 'program' ? <>
           <div className="page-heading"><div><div className="eyebrow"><span />{t("YOUR TRAINING, WITH INTENTION")}</div><div className="title-row"><h1>{displayedProgramName}</h1><span className="program-badge">{t("4-day program")}</span></div><p>{t(programDescription)}</p></div><div className="heading-actions"><div className="popover-anchor"><button className="secondary-button square-button" aria-label={t("Program options")} aria-expanded={programMenu} onClick={e => { e.stopPropagation(); setProgramMenu(v => !v) }}><MoreHorizontal size={20} /></button>{programMenu && <div className="popover menu-popover" onClick={e => e.stopPropagation()}><button onClick={() => { setNewName(displayedProgramName); setDialog('rename'); setProgramMenu(false) }}><StickyNote size={15} />{t("Rename program")}</button><button onClick={() => { setPage('history'); setProgramMenu(false) }}><History size={15} />{t("View workout history")}</button></div>}</div><button className="primary-button heading-start" onClick={() => active ? setDialog('finish') : startSession()} disabled={!session && !day.exercises.length}>{active ? <Check size={16} /> : <Play size={15} fill="currentColor" />}{active ? t("Finish workout") : session ? t("Resume workout") : t("Start workout")}<ArrowUpRight size={17} /></button></div></div>
 
@@ -171,7 +201,7 @@ function App() {
             <button className="secondary-button" onClick={() => setDialog('explanation')}><BookOpen size={16} />{t('Understand your program')}<ArrowRight size={15} /></button>
           </section>
 
-          <div className="day-tabs" role="tablist" aria-label={t("Workout days")}>{days.map((d, i) => <button key={d.id} id={`tab-${d.id}`} role="tab" aria-selected={selected === i} aria-controls="day-panel" className={`day-tab ${selected === i ? 'active' : ''}`} onClick={() => selectDay(i)} onKeyDown={e => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); const next = (i + (e.key === 'ArrowRight' ? 1 : 3)) % 4; selectDay(next); document.getElementById(`tab-${days[next].id}`)?.focus() } }} tabIndex={selected === i ? 0 : -1}><div className="day-tab-top"><span>{t("DAY 0")}{i + 1}</span><span className="day-indicator">{history.some(h => h.dayId === d.id) ? <Check size={11} /> : selected === i ? <span /> : null}</span></div><h3>{t(d.name)}</h3><span className="day-tab-weekday">{t(d.weekday)}</span><div className="day-tab-bottom"><span>{d.exercises.length} {t("exercises")}</span><span>~{duration(d)} min</span></div></button>)}</div>
+          <div className="day-tabs" role="tablist" aria-label={t("Workout days")}>{days.map((d, i) => <button key={d.id} id={`tab-${d.id}`} role="tab" aria-selected={selected === i} aria-controls="day-panel" className={`day-tab ${selected === i ? 'active' : ''}`} onClick={() => selectDay(i)} onKeyDown={e => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); const next = (i + (e.key === 'ArrowRight' ? 1 : days.length - 1)) % days.length; selectDay(next); document.getElementById(`tab-${days[next].id}`)?.focus() } }} tabIndex={selected === i ? 0 : -1}><div className="day-tab-top"><span>{t("DAY 0")}{i + 1}</span><span className="day-indicator">{history.some(h => h.dayId === d.id) ? <Check size={11} /> : selected === i ? <span /> : null}</span></div><h3>{t(d.name)}</h3><span className="day-tab-weekday">{t(d.weekday)}</span><div className="day-tab-bottom"><span>{d.exercises.length} {t("exercises")}</span><span>~{duration(d)} min</span></div></button>)}</div>
 
           <div className="dashboard-grid" id="day-panel" role="tabpanel" aria-labelledby={`tab-${day.id}`}>
             <div className="workout-column">
@@ -183,18 +213,24 @@ function App() {
 
               <section className="exercise-section"><div className="section-heading"><div><h2>{t("Exercises")}<span>{day.exercises.length.toString().padStart(2, '0')}</span></h2><p>{t("Follow the order. Focus on every rep.")}</p></div><button className="add-exercise-button" onClick={() => { setSearch(''); setFilter('All muscles'); setDialog('add') }}><Plus size={16} />{t("Add exercise")}</button></div>
                 <button className={`workout-note-button ${showNote ? 'note-open' : ''}`} onClick={() => setShowNote(v => !v)}><StickyNote size={15} /><span>{day.note ? t("View workout note") : t("Add a workout note")}{day.note && <span className="note-dot" />}</span><ChevronDown size={14} /></button>
-                {showNote && <div className="note-field"><textarea aria-label={t("Workout note")} placeholder={t("How are you feeling? Add a cue, a goal, or a reminder…")} value={day.note} onChange={e => updateDay(d => ({ ...d, note: e.target.value }))} maxLength={2000} /><span>{t("Saved automatically")}</span></div>}
+                {showNote && <div className="note-field"><textarea aria-label={t("Workout note")} placeholder={t("How are you feeling? Add a cue, a goal, or a reminder…")} value={day.note} onChange={e => {
+                  const note = e.target.value
+                  updateDay(d => ({ ...d, note }))
+                  if (active) setSession(current => current?.details ? { ...current, details: { ...current.details, note } } : current)
+                }} maxLength={2000} /><span>{t("Saved automatically")}</span></div>}
                 <div className="exercise-list">{day.exercises.map((exercise, index) => {
                   const isExpanded = expanded === exercise.id
                   const logs = active ? session.logs[exercise.id] : undefined
-                  const timed = session?.modes?.[exercise.id] === 'seconds'
+                  const snapshot = (active ? session.details?.snapshots[exercise.id] : undefined) ?? snapshotExercise(exercise, preferences.rest)
+                  const timed = snapshot.mode === 'seconds'
                   const allDone = logs?.every(s => s.done)
                   return <article key={exercise.id} className={`exercise-card ${isExpanded ? 'expanded' : ''} ${allDone ? 'exercise-done' : ''}`}>
-                    <div className="exercise-card-main"><span className="exercise-number">{allDone ? <Check size={14} /> : (index + 1).toString().padStart(2, '0')}</span><button className="exercise-open" aria-label={`${isExpanded ? t("Collapse") : t("Expand")} ${t(exercise.name)}`} aria-expanded={isExpanded} onClick={() => setExpanded(isExpanded ? null : exercise.id)}><ExerciseArt kind={exercise.kind} /><div className="exercise-copy"><h3>{t(exercise.name)}</h3><ExercisePrescription exercise={exercise} /></div></button><span className="muscle-tag">{t(exercise.muscle)}</span><div className="popover-anchor exercise-options"><button className="icon-button" aria-label={t('Options for {exercise}', { exercise: t(exercise.name) })} onClick={e => { e.stopPropagation(); setExerciseMenu(exerciseMenu === exercise.id ? null : exercise.id) }}><MoreHorizontal size={19} /></button>{exerciseMenu === exercise.id && <div className="popover menu-popover" onClick={e => e.stopPropagation()}><button onClick={() => { setExpanded(exercise.id); setExerciseMenu(null) }}><Settings2 size={15} />{active ? t("Log sets") : t("Edit sets & reps")}</button><button disabled={index === 0 || !!active} onClick={() => { updateDay(d => { const exercises = [...d.exercises]; [exercises[index - 1], exercises[index]] = [exercises[index], exercises[index - 1]]; return { ...d, exercises } }); setExerciseMenu(null) }}><ArrowUpRight size={15} />{t("Move up")}</button><button className="danger-text" onClick={() => removeExercise(exercise.id)}><Trash2 size={15} />{t("Remove exercise")}</button></div>}</div><button className="icon-button exercise-chevron" aria-label={t('{action} details for {exercise}', { action: isExpanded ? t('Hide') : t('Show'), exercise: t(exercise.name) })} onClick={() => setExpanded(isExpanded ? null : exercise.id)}><ChevronDown size={16} className={isExpanded ? 'rotated' : ''} /></button></div>
-                    {isExpanded && <div className="exercise-details"><p className="exercise-tip"><Target size={15} /><span>{t(exercise.tip)}</span></p>{logs ? <>{exercise.timedAlternative && <label className="logging-mode">{t('Logging mode')}<select aria-label={t('Logging mode')} value={timed ? 'seconds' : 'reps'} disabled={logs.some(set => set.done)} onChange={event => {
+                    <div className="exercise-card-main"><span className="exercise-number">{allDone ? <Check size={14} /> : (index + 1).toString().padStart(2, '0')}</span><button className="exercise-open" aria-label={`${isExpanded ? t("Collapse") : t("Expand")} ${t(exercise.name)}`} aria-expanded={isExpanded} onClick={() => setExpanded(isExpanded ? null : exercise.id)}><ExerciseArt kind={exercise.kind} /><div className="exercise-copy"><h3>{t(exercise.name)}</h3><ExercisePrescription exercise={exercise} /></div></button><span className="muscle-tag">{t(exercise.muscle)}</span><div className="popover-anchor exercise-options"><button className="icon-button" aria-label={t('Options for {exercise}', { exercise: t(exercise.name) })} onClick={e => { e.stopPropagation(); setExerciseMenu(exerciseMenu === exercise.id ? null : exercise.id) }}><MoreHorizontal size={19} /></button>{exerciseMenu === exercise.id && <div className="popover menu-popover" onClick={e => e.stopPropagation()}><button onClick={() => { setExpanded(exercise.id); setExerciseMenu(null) }}><Settings2 size={15} />{active ? t("Log sets") : t("Edit sets & reps")}</button><button disabled={index === 0 || !!active} onClick={() => { updateDay(d => { const exercises = [...d.exercises]; [exercises[index - 1], exercises[index]] = [exercises[index], exercises[index - 1]]; return { ...d, exercises } }); setExerciseMenu(null) }}><ArrowUpRight size={15} />{t("Move up")}</button><button className="danger-text" disabled={!!active && !!logs?.some(set => set.done)} onClick={() => removeExercise(exercise.id)}><Trash2 size={15} />{t("Remove exercise")}</button></div>}</div><button className="icon-button exercise-chevron" aria-label={t('{action} details for {exercise}', { action: isExpanded ? t('Hide') : t('Show'), exercise: t(exercise.name) })} onClick={() => setExpanded(isExpanded ? null : exercise.id)}><ChevronDown size={16} className={isExpanded ? 'rotated' : ''} /></button></div>
+                    {isExpanded && <div className="exercise-details"><p className="exercise-tip"><Target size={15} /><span>{t(exercise.tip)}</span></p><ExerciseMemory exercise={exercise} snapshot={snapshot} history={history} unit={session?.unit ?? preferences.unit} active={!!active} locked={!!logs?.some(set => set.done)} onVariantChange={variant => chooseVariant(exercise, variant)} onNoteChange={note => noteExercise(exercise.id, note)} />{logs ? <>{exercise.timedAlternative && <label className="logging-mode">{t('Logging mode')}<select aria-label={t('Logging mode')} value={timed ? 'seconds' : 'reps'} disabled={logs.some(set => set.done)} onChange={event => {
                       const mode = event.target.value as 'reps' | 'seconds'
-                      setSession(current => current ? { ...current, modes: { ...current.modes, [exercise.id]: mode }, logs: { ...current.logs, [exercise.id]: current.logs[exercise.id].map(set => ({ ...set, reps: String(mode === 'seconds' ? exercise.timedAlternative : exercise.reps) })) } } : null)
-                    }}><option value="reps">{t('Hanging leg raise (reps)')}</option><option value="seconds">{t('Plank (seconds)')}</option></select></label>}<div className="set-table"><div className="set-table-header"><span>{t("SET")}</span><span>{t("WEIGHT (")}{preferences.unit})</span><span>{timed ? t("SECONDS") : t("REPS")}</span><span>{t("DONE")}</span></div>{logs.map((set, setIndex) => <div className={`set-table-row ${set.done ? 'set-done' : ''}`} key={setIndex}><span>{setIndex + 1}</span><input type="number" min="0" max="2000" step="0.5" placeholder="0" disabled={timed} aria-label={t('{exercise} set {set} weight', { exercise: t(exercise.name), set: setIndex + 1 })} value={set.weight} onChange={e => updateSet(exercise.id, setIndex, { weight: e.target.value })} /><input type="number" min="1" max="999" aria-label={t(timed ? '{exercise} set {set} seconds' : '{exercise} set {set} reps', { exercise: t(exercise.name), set: setIndex + 1 })} value={set.reps} onChange={e => updateSet(exercise.id, setIndex, { reps: e.target.value })} /><button className="set-checkbox" aria-label={t('{action} {exercise} set {set}', { action: set.done ? t('Unmark') : t('Complete'), exercise: t(exercise.name), set: setIndex + 1 })} aria-pressed={set.done} disabled={!set.done && (!set.reps || Number(set.reps) < 1 || Number(set.weight) < 0 || Number(set.weight) > 2000 || Number(set.reps) > 999)} onClick={() => updateSet(exercise.id, setIndex, { done: !set.done })}><Check size={16} /></button></div>)}</div><p className="set-helper">{t("For bodyweight movements, leave weight at 0.")}</p></> : <div className="exercise-edit"><label>{t("Sets")}<select aria-label={t('Sets for {exercise}', { exercise: t(exercise.name) })} value={exercise.sets} disabled={!!session} onChange={e => updateDay(d => ({ ...d, exercises: d.exercises.map(ex => ex.id === exercise.id ? { ...ex, sets: Number(e.target.value) } : ex) }))}>{Array.from({ length: 8 }, (_, i) => <option key={i} value={i + 1}>{i + 1}</option>)}</select></label><span>×</span><label>{t("Target reps")}<input type="number" aria-label={t('Target reps for {exercise}', { exercise: t(exercise.name) })} min="1" max="100" value={exercise.reps} disabled={!!session} onChange={e => updateDay(d => ({ ...d, exercises: d.exercises.map(ex => ex.id === exercise.id ? { ...ex, repMin: undefined, reps: Math.min(100, Math.max(1, Number(e.target.value))) } : ex) }))} /></label><span className="edit-saved"><Check size={13} />{t("Auto-saved")}</span></div>}</div>}
+                      const variant = exerciseVariants(exercise).find(variant => variant.mode === mode)
+                      if (variant) chooseVariant(exercise, variant)
+                    }}><option value="reps">{t('Hanging leg raise (reps)')}</option><option value="seconds">{t('Plank (seconds)')}</option></select></label>}<div className={`set-table ${timed ? 'set-table-timed' : 'set-table-reps'}`}><div className="set-table-header"><span>{t("SET")}</span><span>{t("WEIGHT (")}{preferences.unit})</span><span>{timed ? t("SECONDS") : t("REPS")}</span>{!timed && <span>{t("RIR")}</span>}<span>{t("DONE")}</span></div>{logs.map((set, setIndex) => <div className={`set-table-row ${set.done ? 'set-done' : ''}`} key={setIndex}><span>{setIndex + 1}</span><input type="number" min="0" max="2000" step="0.5" placeholder="0" disabled={timed} aria-label={t('{exercise} set {set} weight', { exercise: t(exercise.name), set: setIndex + 1 })} value={set.weight} onChange={e => updateSet(exercise.id, setIndex, { weight: e.target.value })} /><input type="number" min="1" max="999" aria-label={t(timed ? '{exercise} set {set} seconds' : '{exercise} set {set} reps', { exercise: t(exercise.name), set: setIndex + 1 })} value={set.reps} onChange={e => updateSet(exercise.id, setIndex, { reps: e.target.value })} />{!timed && <select className="set-rir-select" aria-label={t('{exercise} set {set} RIR', { exercise: t(exercise.name), set: setIndex + 1 })} value={set.rir ?? ''} onChange={e => { const val = e.target.value as RirValue | ''; updateSet(exercise.id, setIndex, { rir: val ? val : undefined }) }}><option value="">—</option><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4+">4+</option><option value="unknown">{t("Don't know")}</option></select>}<button className="set-checkbox" aria-label={t('{action} {exercise} set {set}', { action: set.done ? t('Unmark') : t('Complete'), exercise: t(exercise.name), set: setIndex + 1 })} aria-pressed={set.done} disabled={!set.done && (!set.reps || Number(set.reps) < 1 || Number(set.weight) < 0 || Number(set.weight) > 2000 || Number(set.reps) > 999 || !Number.isInteger(Number(set.reps)))} onClick={() => updateSet(exercise.id, setIndex, { done: !set.done })}><Check size={16} /></button></div>)}</div><p className="set-helper">{t("For bodyweight movements, leave weight at 0.")}</p>{!timed && <details className="rir-guide"><summary><HelpCircle size={13} /><span>{t("What is RIR? Repetitions in Reserve guide")}</span></summary><div className="rir-guide-content"><p>{t("RIR is your personal estimate of how many more clean repetitions you could have performed before failure or technical breakdown. It is completely optional and subjective — never train to failure just to test or guess this number.")}</p><div className="rir-examples"><div><span className="rir-badge">0</span><p>{t("0 reps in reserve — maximum effort with proper form. Could not complete another rep safely.")}</p></div><div><span className="rir-badge">1</span><p>{t("1 rep in reserve — very hard. Could complete exactly 1 more rep with good technique.")}</p></div><div><span className="rir-badge">2</span><p>{t("2 reps in reserve — hard, effective stimulus. 2 more reps possible before losing form.")}</p></div><div><span className="rir-badge">3</span><p>{t("3 reps in reserve — moderate effort. 3 more reps left.")}</p></div><div><span className="rir-badge">4+</span><p>{t("4 or more reps in reserve — light set or warm-up.")}</p></div><div><span className="rir-badge">{t("Don't know")}</span><p>{t("Unsure — completely normal, especially when starting a new movement or load.")}</p></div><div><span className="rir-badge">—</span><p>{t("Blank / optional — leave blank whenever you prefer not to rate effort.")}</p></div></div><p className="rir-evidence-note">{t("Evidence note: Studies show that leaving 1–3 reps in reserve produces muscle growth comparable to training to complete failure, with faster recovery and lower injury risk.")}</p></div></details>}</> : <div className="exercise-edit"><label>{t("Sets")}<select aria-label={t('Sets for {exercise}', { exercise: t(exercise.name) })} value={exercise.sets} disabled={!!session} onChange={e => updateDay(d => ({ ...d, exercises: d.exercises.map(ex => ex.id === exercise.id ? { ...ex, sets: Number(e.target.value) } : ex) }))}>{Array.from({ length: 8 }, (_, i) => <option key={i} value={i + 1}>{i + 1}</option>)}</select></label><span>×</span><label>{t("Target reps")}<input type="number" aria-label={t('Target reps for {exercise}', { exercise: t(exercise.name) })} min="1" max="100" value={exercise.reps} disabled={!!session} onChange={e => updateDay(d => ({ ...d, exercises: d.exercises.map(ex => ex.id === exercise.id ? { ...ex, repMin: undefined, reps: Math.min(100, Math.max(1, Number(e.target.value))) } : ex) }))} /></label><span className="edit-saved"><Check size={13} />{t("Auto-saved")}</span></div>}</div>}
                   </article>
                 })}</div>
                 {!day.exercises.length && <div className="empty-state"><Dumbbell size={28} /><h3>{t("Make this day your own.")}</h3><p>{t("Add your first exercise to get started.")}</p><button className="primary-button" onClick={() => setDialog('add')}><Plus size={16} />{t("Add exercise")}</button></div>}
@@ -222,8 +258,9 @@ function App() {
           <div className="library-grid">{filteredExercises.map(exercise => <article className="library-card" key={exercise.id}><div className="library-card-art"><ExerciseArt kind={exercise.kind} /><span className="muscle-tag">{t(exercise.muscle)}</span></div><h3>{t(exercise.name)}</h3><p className="library-equipment">{t(exercise.equipment)} <span>·</span> {exercise.sets} {t("sets")} × {repTarget(exercise)} {t("reps")}{exercise.timedAlternative && ` / ${exercise.timedAlternative}s`} <span>·</span> {exercise.rest === 0 ? t("No rest") : t("Rest: {seconds}s", { seconds: exercise.rest ?? 90 })}</p><p className="library-tip">{t(exercise.tip)}</p><button className="secondary-button" disabled={day.exercises.some(e => e.id === exercise.id)} onClick={() => addExercise(exercise)}>{day.exercises.some(e => e.id === exercise.id) ? <Check size={15} /> : <Plus size={15} />}{day.exercises.some(e => e.id === exercise.id) ? t('In {day}', { day: t(day.name) }) : t('Add to {day}', { day: t(day.name) })}</button></article>)}</div>{!filteredExercises.length && <div className="empty-state"><Search size={30} /><h3>{t("No exercises found.")}</h3><p>{t("Try a different name or muscle group.")}</p><button className="secondary-button" onClick={() => { setSearch(''); setFilter('All muscles') }}>{t("Clear filters")}</button></div>}
         </> : <>
           <div className="page-heading"><div><div className="eyebrow"><span />{t("EVERY SESSION IS A STEP FORWARD")}</div><h1>{t("Workout history")}</h1><p>{t("A record of the work you put in. Be proud of your progress.")}</p></div><span className="program-badge">{history.length} {t("sessions")}</span></div>
+          <div className="history-toolbar"><button className="secondary-button" onClick={() => setDialog('backup')}>{t('Backup and restore')}</button><span>{t('View a session to inspect its exercises and sets.')}</span></div>
           <div className="history-stats"><div className="insight-card"><Dumbbell size={21} /><span>{t("WORKOUTS COMPLETED")}</span><strong>{history.length}</strong></div><div className="insight-card"><Clock3 size={21} /><span>{t("MINUTES TRAINED")}</span><strong>{Math.round(history.reduce((sum, h) => sum + h.seconds, 0) / 60)}</strong></div><div className="insight-card"><TrendingUp size={21} /><span>{t("SETS COMPLETED")}</span><strong>{history.reduce((sum, h) => sum + h.sets, 0)}</strong></div></div>
-          {history.length ? <div className="history-list">{history.map(record => <article className="history-record" key={record.id}><div className="history-record-icon"><CheckCheck size={23} /></div><div><h3>{t(record.name)}</h3><p>{new Date(record.finishedAt).toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p></div><div className="history-record-stats"><span><Clock3 size={14} />{clockTime(record.seconds)}</span><span><Dumbbell size={14} />{record.sets} {t("sets")}</span><span>{record.volume.toLocaleString(locale)} {record.unit}</span></div><button className="icon-button" aria-label={t('View {day} summary', { day: t(record.name) })} onClick={() => { setSummary(record); setDialog('summary') }}><ArrowUpRight size={20} /></button></article>)}</div> : <div className="empty-state history-empty"><span className="empty-state-art"><History size={36} /></span><h2>{t("Your story starts with one session.")}</h2><p>{t("Finish your first workout and you’ll find it here.")}<br />{t("Future you will thank you for showing up.")}</p><button className="primary-button" onClick={() => goTo('program')}>{t("Go to my program")}<ArrowRight size={16} /></button></div>}
+          {history.length ? <div className="history-list">{history.map(record => <article className="history-record" key={record.id}><div className="history-record-icon"><CheckCheck size={23} /></div><div><h3>{t(record.name)}</h3><span className="history-detail-badge">{record.details ? t("Detailed history") : t("Summary only")}</span><p>{new Date(record.finishedAt).toLocaleDateString(locale, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p></div><div className="history-record-stats"><span><Clock3 size={14} />{clockTime(record.seconds)}</span><span><Dumbbell size={14} />{record.sets} {t("sets")}</span><span>{record.volume.toLocaleString(locale)} {record.unit}</span></div><button className="icon-button" aria-label={t('View {day} summary', { day: t(record.name) })} onClick={() => { setSummary(record); setDialog('summary') }}><ArrowUpRight size={20} /></button></article>)}</div> : <div className="empty-state history-empty"><span className="empty-state-art"><History size={36} /></span><h2>{t("Your story starts with one session.")}</h2><p>{t("Finish your first workout and you’ll find it here.")}<br />{t("Future you will thank you for showing up.")}</p><button className="primary-button" onClick={() => goTo('program')}>{t("Go to my program")}<ArrowRight size={16} /></button></div>}
         </>}
         <footer className="page-footer"><span>{t("Made for the work you put in.")}</span><span>{t("YOUR PLAN. YOUR PACE.")}<span className="footer-mark">F↗</span></span></footer>
       </main>
@@ -232,6 +269,8 @@ function App() {
     {session && <div className="active-workout-bar"><button className="active-workout-label" onClick={() => { setPage('program'); const index = days.findIndex(d => d.id === session.dayId); if (index >= 0) selectDay(index) }}><span className="live-dot" /><strong>{t(session.name)}</strong><span>{clockTime(elapsed)}</span><ArrowUpRight size={15} /></button>{restSeconds > 0 ? <div className="rest-timer"><Timer size={15} /><span>{t("Rest")} <strong>{clockTime(restSeconds)}</strong></span><button onClick={() => setRestUntil(null)}>{t("Skip")}<X size={13} /></button></div> : <span className="rest-ready">{t("Ready for your next set.")}</span>}<button className="primary-button" onClick={() => setDialog('finish')}>{t("Finish")}<Check size={15} /></button></div>}
 
     {toast && <div className="toast" role="status"><span><Check size={15} /></span>{t(toast.message, Object.fromEntries(Object.entries(toast.values ?? {}).map(([key, value]) => [key, t(value)])))}<button className="icon-button" aria-label={t("Dismiss notification")} onClick={() => setToast(null)}><X size={15} /></button></div>}
+
+    {dialog === 'backup' && <BackupManager data={{ days, history, preferences, session, programName, customProgramName, selected }} onClose={() => setDialog(null)} />}
 
     {dialog === 'explanation' && <ProgramExplanation days={days} name={displayedProgramName} onClose={() => setDialog(null)} />}
 
@@ -243,7 +282,7 @@ function App() {
 
     {dialog === 'finish' && session && <Modal title={t("Ready to call it a workout?")} onClose={() => setDialog(null)}><p className="modal-intro">{t("Every bit of effort adds up. Here’s your session so far.")}</p><div className="finish-stats"><div><Timer size={22} /><strong>{clockTime(elapsed)}</strong><span>{t("Time trained")}</span></div><div><CheckCheck size={22} /><strong>{Object.values(session.logs).flat().filter(s => s.done).length}</strong><span>{t("Sets completed")}</span></div></div>{Object.values(session.logs).flat().some(s => s.done) ? <p className="finish-message">{t("Your completed sets will be saved to your workout history.")}</p> : <p className="finish-message">{t("You haven’t logged any sets yet. You can keep training or discard this session.")}</p>}<button className="primary-button full-width" onClick={() => { if (Object.values(session.logs).flat().some(s => s.done)) finishSession(); else { setSession(null); setRestUntil(null); setDialog(null); notify("Session discarded. Your program is ready for next time.") } }}>{Object.values(session.logs).flat().some(s => s.done) ? t("Save & finish workout") : t("Discard empty session")}<Check size={16} /></button><button className="text-button full-width" onClick={() => setDialog(null)}><ArrowLeft size={15} />{t("Keep training")}</button></Modal>}
 
-    {dialog === 'summary' && summary && <Modal title={t("That’s work well done.")} onClose={() => setDialog(null)}><div className="summary-art"><Trophy size={39} /></div><h3 className="summary-title">{t("You showed up for yourself.")}</h3><p className="summary-subtitle">{t(summary.name)} · {new Date(summary.finishedAt).toLocaleDateString(locale, { month: 'short', day: 'numeric' })}</p><div className="summary-stats"><div><strong>{clockTime(summary.seconds)}</strong><span>{t("Duration")}</span></div><div><strong>{summary.sets}</strong><span>{t("Sets logged")}</span></div><div><strong>{summary.volume.toLocaleString(locale)}<small>{summary.unit}</small></strong><span>{t("Total volume")}</span></div></div><p className="summary-message">{t("Give yourself a moment. Rest up, refuel, and come back a little stronger.")}</p><button className="primary-button full-width" onClick={() => { setDialog(null); goTo('history') }}>{t("View workout history")}<ArrowRight size={16} /></button></Modal>}
+    {dialog === 'summary' && summary && <Modal title={t("That’s work well done.")} onClose={() => setDialog(null)} wide={!!summary.details}><div className="summary-art"><Trophy size={39} /></div><h3 className="summary-title">{t("You showed up for yourself.")}</h3><p className="summary-subtitle">{t(summary.name)} · {new Date(summary.finishedAt).toLocaleDateString(locale, { month: 'short', day: 'numeric' })}</p><div className="summary-stats"><div><strong>{clockTime(summary.seconds)}</strong><span>{t("Duration")}</span></div><div><strong>{summary.sets}</strong><span>{t("Sets logged")}</span></div><div><strong>{summary.volume.toLocaleString(locale)}<small>{summary.unit}</small></strong><span>{t("Total volume")}</span></div></div><WorkoutDetails record={summary} /><p className="summary-message">{t("Give yourself a moment. Rest up, refuel, and come back a little stronger.")}</p><button className="primary-button full-width" onClick={() => { setDialog(null); goTo('history') }}>{t("View workout history")}<ArrowRight size={16} /></button></Modal>}
   </div>
 }
 

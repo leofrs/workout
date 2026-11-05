@@ -1,4 +1,5 @@
 export type Muscle = 'Shoulders' | 'Back' | 'Chest' | 'Triceps' | 'Biceps' | 'Quads' | 'Hamstrings' | 'Calves' | 'Core' | 'Glutes'
+export type ExerciseVariant = { id: string; name: string; equipment: string; mode?: 'reps' | 'seconds' }
 export type Exercise = {
   id: string
   name: string
@@ -11,6 +12,7 @@ export type Exercise = {
   timedAlternative?: number
   perSide?: boolean
   technique?: string
+  variantId?: string
   kind: 'squat' | 'curl' | 'press' | 'pull' | 'raise' | 'crunch' | 'dip' | 'hinge'
   tip: string
 }
@@ -129,16 +131,35 @@ export const programGuidelines = [
   'Progressive overload: log weights and reps. Increase the load once you reach the top of the rep range with good form.',
 ]
 
-export type LoggedSet = { weight: string; reps: string; done: boolean }
-export type Session = { dayId: string; name: string; startedAt: number; logs: Record<string, LoggedSet[]>; modes?: Record<string, 'reps' | 'seconds'> }
-export type WorkoutRecord = { id: string; name: string; dayId: string; finishedAt: number; seconds: number; sets: number; volume: number; unit: 'kg' | 'lb'; exercises: number }
+export type RirValue = '0' | '1' | '2' | '3' | '4+' | 'unknown'
+export type LoggedSet = { weight: string; reps: string; done: boolean; rir?: RirValue }
+export type ExerciseSnapshot = { prescription: Exercise; variant: ExerciseVariant; mode: 'reps' | 'seconds'; note: string }
+export type SessionDetails = { schemaVersion: 1; programName: string; programVersion: string; weekday: string; note: string; recovered?: boolean; snapshots: Record<string, ExerciseSnapshot> }
+export type Session = { dayId: string; name: string; startedAt: number; logs: Record<string, LoggedSet[]>; modes?: Record<string, 'reps' | 'seconds'>; unit?: 'kg' | 'lb'; details?: SessionDetails }
+export type WorkoutExerciseRecord = ExerciseSnapshot & { logs: LoggedSet[] }
+export type WorkoutDetails = Omit<SessionDetails, 'snapshots'> & { exercises: WorkoutExerciseRecord[] }
+export type WorkoutRecord = { id: string; name: string; dayId: string; finishedAt: number; seconds: number; sets: number; volume: number; unit: 'kg' | 'lb'; exercises: number; details?: WorkoutDetails }
 export type Preferences = { name: string; unit: 'kg' | 'lb'; rest: number }
 
 export function readStored<T>(key: string, fallback: T): T {
   try { const value = localStorage.getItem(`form:${key}`); return value ? JSON.parse(value) as T : fallback } catch { return fallback }
 }
 export function saveStored(key: string, value: unknown) {
-  try { localStorage.setItem(`form:${key}`, JSON.stringify(value)) } catch { /* App remains usable if browser storage is unavailable. */ }
+  try { localStorage.setItem(`form:${key}`, JSON.stringify(value)); return true } catch { return false }
+}
+export function commitStored(values: Record<string, unknown>): { ok: boolean; recovered: boolean } {
+  let previous: Map<string, string | null>
+  try { previous = new Map(Object.keys(values).map(key => [`form:${key}`, localStorage.getItem(`form:${key}`)])) } catch { return { ok: false, recovered: true } }
+  try {
+    for (const [key, value] of Object.entries(values)) localStorage.setItem(`form:${key}`, JSON.stringify(value))
+    return { ok: true, recovered: true }
+  } catch {
+    let recovered = true
+    for (const [key, value] of previous) {
+      try { if (value === null) localStorage.removeItem(key); else if (localStorage.getItem(key) !== value) localStorage.setItem(key, value) } catch { recovered = false }
+    }
+    return { ok: false, recovered }
+  }
 }
 export const totalSets = (day: Day) => day.exercises.reduce((sum, e) => sum + e.sets, 0)
 export const duration = (day: Day) => Math.round(day.exercises.reduce((minutes, exercise) => minutes + exercise.sets * (1 + (exercise.rest ?? 90) / 60) + 1.75, 0))

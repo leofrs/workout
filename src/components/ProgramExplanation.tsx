@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { CalendarDays, CheckCheck, Clock3, Target } from 'lucide-react'
+import { CalendarDays, CheckCheck, Clock3, Flame, Target } from 'lucide-react'
 import { programDescription, programGuidelines, readStored, saveStored } from '../data'
 import type { Day } from '../data'
 import { useLanguage } from '../i18n'
@@ -22,8 +22,8 @@ const sessionRoles: Record<string, string> = {
 
 export function ProgramExplanation({ days, name, onClose }: { days: Day[]; name: string; onClose: () => void }) {
   const { t } = useLanguage()
-  const [context, setContext] = useState<TrainingContext>(() => readStored('training-context', emptyContext))
-  useEffect(() => saveStored('training-context', context), [context])
+  const [context, setContext] = useState<TrainingContext>(() => readStored<TrainingContext | null>('training-context', emptyContext) ?? emptyContext)
+  useEffect(() => { saveStored('training-context', context) }, [context])
   const insights = analyzeProgram(days)
   const overTime = context.minutes ? insights.active.filter(session => session.minutes > Number(context.minutes)) : []
 
@@ -87,6 +87,7 @@ export function ProgramExplanation({ days, name, onClose }: { days: Day[]; name:
       <table className="explanation-table"><caption className="sr-only">{t('Weekly direct sets and sessions by muscle')}</caption><thead><tr><th scope="col">{t('Muscle')}</th><th scope="col">{t('Sets')}</th><th scope="col">{t('Sessions')}</th></tr></thead><tbody>{insights.muscles.map(({ muscle, sets, sessions }) => <tr key={muscle}><th scope="row">{t(muscle)}</th><td>{sets}</td><td>{sessions}</td></tr>)}</tbody></table>
       <p className="explanation-footnote">{t('Counts use each exercise’s primary muscle only. Other muscles may also participate; these numbers do not represent all the work they receive.')}</p>
     </section>}
+    <section className="explanation-section" aria-labelledby="rir-heading"><h3 id="rir-heading"><Flame size={17} />{t('Effort perception and RIR')}</h3><p>{t('Repetitions in Reserve (RIR) indicates how many clean reps you estimate you could still perform before failure or breakdown. It is optional and subjective.')}</p><p>{t('Evidence shows that keeping 1 to 3 reps in reserve produces hypertrophy comparable to training to complete muscular failure, with less central nervous system fatigue and faster recovery. Never force failure just to rate RIR.')}</p></section>
     <section className="explanation-section" aria-labelledby="protocol-heading"><h3 id="protocol-heading">{t('Protocol guidelines')}</h3><ul className="list-disc space-y-2 pl-4 text-xs leading-6 text-[#687d61]">{programGuidelines.map(guideline => <li key={guideline}>{t(guideline)}</li>)}</ul></section>
     <div className="storage-note"><CheckCheck size={17} /><p>{t('This explanation follows your current exercises, sets, and schedule. It describes the plan’s structure; your goal and availability help you assess its fit, without guaranteeing individual results.')}</p></div>
     <button className="primary-button full-width" onClick={onClose}>{t('Back to my program')}</button>

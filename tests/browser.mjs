@@ -2,6 +2,8 @@ import assert from 'node:assert/strict'
 import { chromium } from '@playwright/test'
 import { checkProgramExplanation } from './program-explanation.mjs'
 import { checkVTaper } from './v-taper.mjs'
+import { checkDetailedHistory } from './detailed-history.mjs'
+import { checkRir } from './rir.mjs'
 
 const browser = await chromium.launch({ headless: true })
 const baseURL = process.env.FORM_TEST_URL || 'http://localhost:5173'
@@ -23,6 +25,8 @@ const navigate = async name => {
 }
 
 try {
+  await checkDetailedHistory(browser, baseURL)
+  await checkRir(browser, baseURL)
   await checkVTaper(browser, baseURL)
   await checkProgramExplanation(browser, baseURL)
   await page.goto(baseURL)
@@ -111,7 +115,9 @@ try {
   await page.screenshot({ path: '/tmp/form-pt-br-mobile.png', fullPage: true })
   await page.setViewportSize({ width: 1440, height: 1000 })
   const dismissNotification = page.getByRole('button', { name: 'Dispensar notificação' })
-  if (await dismissNotification.isVisible()) await dismissNotification.click()
+  try {
+    if (await dismissNotification.isVisible()) await dismissNotification.click({ timeout: 1000 })
+  } catch {}
   await page.getByRole('navigation').getByRole('button', { name: 'Meu programa' }).click()
   await page.screenshot({ path: '/tmp/form-pt-br-desktop.png', fullPage: true })
   await page.reload()
