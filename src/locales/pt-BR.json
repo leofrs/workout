@@ -548,5 +548,19 @@
   "Continue workout": "Continuar treino",
   "Finish your current workout before changing the program.": "Finalize o treino em andamento antes de alterar o programa.",
   "{count} training days": "{count} dias de treino",
-  "Back to training days": "Voltar aos dias de treino"
+  "Back to training days": "Voltar aos dias de treino",
+  "Demonstration of {exercise}": "Demonstração de {exercise}",
+  "Pause demonstration of {exercise}": "Pausar demonstração de {exercise}",
+  "Play demonstration of {exercise}": "Reproduzir demonstração de {exercise}",
+  "Demonstration unavailable.": "Demonstração indisponível.",
+  "Loading demonstration…": "Carregando demonstração…",
+  "Demonstration source: {source}": "Fonte da demonstração: {source}",
+  "Try again": "Tentar novamente",
+  "Pause": "Pausar",
+  "Play": "Reproduzir",
+  "Exit full screen": "Sair da tela cheia",
+  "Full screen": "Tela cheia",
+  "Workout duration": "Tempo de treino",
+  "Rest remaining": "Descanso restante",
+  "Ready to continue": "Pronto para continuar"
 }

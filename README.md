@@ -22,7 +22,23 @@ Ao tocar em um dia, o usuário abre seu feed vertical de exercícios, com um bot
 
 Durante o treino, toque em **Concluir série**. Um modal exibe o cronômetro de descanso, o próximo exercício e o número da próxima série. Ao terminar a contagem, use **Continuar treino**; também é possível **Pular descanso**. Fechar o modal ou usar Escape equivale a pular o intervalo. O retorno leva à próxima série pendente. Os exercícios da supersérie com descanso zero avançam diretamente para o par; o descanso é aplicado depois do segundo exercício. A última série pendente do treino abre a revisão para finalizar.
 
+## Demonstrações dos exercícios
+
+Os 26 exercícios têm demonstrações em GIF no feed e na biblioteca, com mapeamento das 40 combinações de exercício e variante em `src/exerciseMedia.ts`. O nome abaixo da animação identifica a variante demonstrada; o feed acompanha a variante e o modo salvos na prescrição ou sessão. A prancha é uma sustentação isométrica e seu GIF mostra a posição mantida.
+
+Use **Pausar / Reproduzir** para controlar cada demonstração. A preferência de movimento reduzido do dispositivo exibe inicialmente um quadro parado do próprio GIF, com reprodução manual disponível. Animações fora da área visível ou em uma aba oculta são suspensas. Os controles não alteram séries, sessões ou dados salvos.
+
+As mídias são carregadas diretamente das fontes públicas [ExerciseDB](https://exercisedb.dev/) e [Fitness Programer](https://fitnessprogramer.com/), com crédito e link em cada demonstração. O carregamento requer internet e depende da disponibilidade desses provedores; não há cópia das mídias no repositório, chave de API ou chamada de busca em tempo de execução. Em caso de falha, o cartão informa a indisponibilidade, mantém a dica do movimento e oferece **Tentar novamente**. Ao adicionar exercícios ou variantes ao catálogo, inclua também a demonstração correspondente no mapeamento.
+
 Séries concluídas e o horário de término do descanso ficam salvos neste navegador. Recarregar a página durante um descanso mantém a contagem pelo tempo real transcorrido. O botão **Dias de treino** retorna aos cartões sem descartar a sessão; **Retomar treino** reabre a sessão em andamento, mesmo ao consultar outro dia.
+
+## Treino em tela cheia e cronômetros
+
+Ao usar **Iniciar treino** ou **Retomar treino**, o feed ocupa toda a área visível da aplicação. O cabeçalho mantém o tempo total de treino em destaque, o progresso das séries e o botão **Finalizar**. Tema e idioma continuam disponíveis. No computador, a demonstração e as séries aparecem lado a lado; no celular, ficam empilhadas, com rolagem dentro do feed.
+
+Use o ícone **Sair da tela cheia** ou Escape para voltar à visualização normal sem encerrar a sessão. O botão **Tela cheia** e a barra de treino em andamento permitem retornar. A saída mantém o cronômetro e as séries registradas.
+
+O descanso mostra uma contagem grande e um anel circular que acompanha o intervalo prescrito. Ao chegar a zero, o indicador muda para **Pronto para continuar**. O próximo exercício e a próxima série permanecem visíveis. Durante o descanso, Escape fecha somente o modal; durante a revisão, fecha somente a revisão. A contagem se recupera após recarregar a página, e os efeitos visuais respeitam movimento reduzido.
 
 ## Programa atual
 

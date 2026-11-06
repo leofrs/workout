@@ -14,6 +14,8 @@ export async function checkDetailedHistory(browser, baseURL) {
     return page
   }
   const navigate = async (page, name) => {
+    const exit = page.getByRole('button', { name: 'Sair da tela cheia', exact: true })
+    if (await exit.isVisible()) await exit.click()
     const menu = page.getByRole('button', { name: 'Abrir navegação', exact: true })
     if (await menu.isVisible()) await menu.click()
     await page.getByRole('navigation').getByRole('button', { name, exact: true }).click()

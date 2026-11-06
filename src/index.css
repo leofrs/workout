@@ -335,7 +335,7 @@
   .library-card { @apply flex min-w-0 flex-col rounded-2xl border border-line bg-surface p-4 transition hover:-translate-y-0.5 hover:border-line-strong hover:shadow-lg hover:shadow-[#000000]/5; }
   .library-card-art { @apply relative mb-4 grid h-[150px] place-items-center rounded-xl bg-accent-soft; }
   .library-card-art .exercise-art { @apply h-28 w-28 bg-transparent text-secondary; }
-  .library-card-art .muscle-tag { @apply absolute bottom-3 left-3; }
+  .library-card-art .muscle-tag { @apply absolute left-3 top-3; }
   .library-card h3 { @apply text-sm font-extrabold text-ink; }
   .library-equipment { @apply mt-2 text-[11px] text-muted; }
   .library-equipment span { @apply px-1 text-muted; }
@@ -636,4 +636,97 @@
   .simple-set-list { @apply px-3; }
   .set-complete-button { @apply gap-2; }
   .set-complete-label { @apply text-[9px]; }
+}
+
+/* GIF demonstrations retain their full frame, including equipment and limbs. */
+@layer components {
+  .feed-art .exercise-demo,
+  .training-feed .feed-art .exercise-demo,
+  .library-card-art .exercise-demo { @apply relative block h-full w-full max-h-none max-w-none overflow-hidden rounded-none bg-white p-0; }
+  .library-card-art { @apply h-56 overflow-hidden; }
+  .exercise-demo-visual { @apply absolute inset-x-0 bottom-11 top-8; }
+  .exercise-demo-visual img, .exercise-demo-visual canvas { @apply absolute h-full w-full object-contain; }
+  .exercise-demo-visual .is-hidden { @apply invisible; }
+  .exercise-demo-controls { @apply absolute inset-x-0 bottom-0 flex min-h-10 items-center gap-2 bg-surface px-3 py-1.5 text-secondary; }
+  .exercise-demo-toggle { @apply inline-flex min-h-8 shrink-0 items-center justify-center gap-1 rounded-lg border border-line bg-surface px-2 text-[10px] font-bold text-ink hover:bg-accent-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent disabled:opacity-50; }
+  .exercise-demo-name { @apply min-w-0 flex-1 truncate text-[10px] font-medium; }
+  .exercise-demo-source { @apply shrink-0 text-[9px] text-secondary underline underline-offset-2 hover:text-accent-ink; }
+  .exercise-demo-message { @apply absolute inset-x-2 bottom-11 top-8 flex flex-col items-center justify-center gap-2 overflow-y-auto px-2 text-center text-xs text-[#475569]; }
+  .exercise-demo-message small { @apply text-[10px] leading-snug; }
+  .exercise-demo-message svg { @apply h-5 w-5 shrink-0; }
+  .exercise-demo-toggle svg, .exercise-demo-message .text-button svg { @apply h-3.5 w-3.5 shrink-0; }
+  .exercise-demo-message .text-button { @apply m-0 min-h-8 text-xs text-[#1d4ed8]; }
+  .feed-art-done { @apply bottom-14; }
+}
+
+/* Focus mode fills the viewport; only the exercise feed scrolls. */
+@layer components {
+  html.workout-is-fullscreen { @apply overflow-hidden; }
+  .is-workout-fullscreen > .sidebar,
+  .is-workout-fullscreen > .nav-scrim,
+  .is-workout-fullscreen > .active-workout-bar,
+  .is-workout-fullscreen .topbar,
+  .is-workout-fullscreen main > .page-heading,
+  .is-workout-fullscreen .page-footer,
+  .is-workout-fullscreen .daily-workout-actions,
+  .is-workout-fullscreen .daily-start-panel { @apply hidden; }
+  .is-workout-fullscreen .daily-workout { @apply fixed inset-0 z-40 m-0 flex w-full max-w-none flex-col gap-3 overflow-hidden bg-canvas p-3; height: 100dvh; padding-top: max(12px, env(safe-area-inset-top)); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .workout-focus-header { @apply mx-auto w-full max-w-[1400px] shrink-0 rounded-2xl border border-line bg-surface p-3; }
+  .workout-focus-top { @apply flex min-w-0 items-center gap-2; }
+  .workout-focus-title { @apply min-w-0 flex-1; }
+  .workout-focus-title h1 { @apply truncate text-sm font-extrabold tracking-tight; }
+  .workout-focus-title p { @apply mt-0.5 truncate text-[10px] text-secondary; }
+  .workout-focus-summary { @apply mt-3 flex items-center gap-3 border-t border-line pt-3; }
+  .workout-elapsed { @apply flex shrink-0 items-center gap-2; }
+  .workout-clock-icon { @apply hidden h-12 w-12 place-items-center rounded-xl bg-accent-soft text-accent-ink sm:grid; }
+  .workout-elapsed > div { @apply flex flex-col gap-0.5; }
+  .workout-elapsed > div > span { @apply text-[9px] font-bold uppercase tracking-wider text-secondary; }
+  .workout-elapsed output { @apply text-[32px] font-extrabold leading-none tracking-tight text-accent-ink tabular-nums; }
+  .workout-focus-progress { @apply ml-auto min-w-0 max-w-56 flex-1; }
+  .workout-focus-progress > span { @apply block text-[9px] font-semibold leading-snug text-secondary; }
+  .workout-focus-progress progress { @apply mt-2 block h-1.5 w-full overflow-hidden rounded-full border-0 bg-accent-soft; accent-color: rgb(var(--accent)); }
+  .workout-focus-progress progress::-webkit-progress-bar { @apply rounded-full bg-accent-soft; }
+  .workout-focus-progress progress::-webkit-progress-value { @apply rounded-full bg-accent; }
+  .workout-focus-progress progress::-moz-progress-bar { @apply rounded-full bg-accent; }
+  .workout-focus-summary > .primary-button { @apply min-h-11 shrink-0 px-3; }
+  .is-workout-fullscreen .exercise-section { @apply mx-auto flex min-h-0 w-full max-w-[1400px] flex-1 flex-col; }
+  .is-workout-fullscreen .feed-toolbar { @apply shrink-0 bg-surface; }
+  .is-workout-fullscreen .training-feed { @apply min-h-0 flex-1 bg-surface; height: auto; scroll-margin-top: 0; }
+  .is-workout-fullscreen .training-feed .feed-art { height: clamp(160px, 30dvh, 360px); }
+  .is-workout-fullscreen .toast { @apply bottom-5 z-50; }
+
+  .rest-dialog > p { @apply mt-2; }
+  .rest-timer-display { @apply relative mx-auto my-5 aspect-square shrink-0; width: min(68vw, 34dvh, 280px); }
+  .rest-timer-ring { @apply h-full w-full -rotate-90 overflow-visible fill-none; stroke-width: 4; }
+  .rest-timer-track { stroke: rgb(var(--accent-soft)); }
+  .rest-timer-progress { @apply text-accent; stroke: currentColor; stroke-linecap: round; transition: stroke-dashoffset 1s linear; }
+  .rest-timer-face { @apply absolute inset-0 flex flex-col items-center justify-center gap-2 text-accent-ink; }
+  .rest-timer-face .rest-countdown { @apply m-0 font-extrabold leading-none text-ink tabular-nums; font-size: clamp(44px, min(17vw, 9dvh), 84px); letter-spacing: -0.055em; }
+  .rest-timer-face > span { @apply text-[10px] font-bold uppercase tracking-widest text-secondary; }
+  .rest-timer-display.is-complete .rest-countdown { @apply text-accent-ink; }
+}
+
+@media (min-width: 900px) {
+  .is-workout-fullscreen .daily-workout { @apply gap-4 p-5; }
+  .workout-focus-header { @apply grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] items-center gap-8 px-5 py-4; }
+  .workout-focus-title h1 { @apply text-lg; }
+  .workout-focus-title p { @apply text-xs; }
+  .workout-focus-summary { @apply m-0 border-0 p-0; }
+  .workout-elapsed output { @apply text-[38px]; }
+  .is-workout-fullscreen .training-feed .exercise-card { @apply grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); grid-template-rows: auto 1fr auto; grid-template-areas: 'art heading' 'art sets' 'art footer'; }
+  .is-workout-fullscreen .training-feed .feed-art { @apply h-full min-h-0 border-r border-line; grid-area: art; }
+  .is-workout-fullscreen .simple-exercise-heading { @apply p-6 pb-2; grid-area: heading; }
+  .is-workout-fullscreen .simple-exercise-heading h3 { @apply text-2xl; }
+  .is-workout-fullscreen .simple-set-list { @apply justify-center p-6; grid-area: sets; }
+  .is-workout-fullscreen .feed-card-footer { grid-area: footer; }
+  .is-workout-fullscreen .exercise-demo-visual { @apply inset-x-4 bottom-16 top-14; }
+}
+
+@media (max-height: 600px) {
+  .is-workout-fullscreen .workout-focus-header { @apply py-2; }
+  .is-workout-fullscreen .workout-focus-summary { @apply mt-2 pt-2; }
+  .is-workout-fullscreen .workout-elapsed output { @apply text-2xl; }
+  .is-workout-fullscreen .training-feed .feed-art { @apply min-h-32; height: 30dvh; }
+  .rest-timer-display { @apply my-3; }
+  .rest-timer-face { @apply gap-1; }
 }

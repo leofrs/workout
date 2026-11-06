@@ -6,6 +6,8 @@ import { checkDetailedHistory } from './detailed-history.mjs'
 import { checkRir } from './rir.mjs'
 import { checkWorkoutFeed } from './workout-feed.mjs'
 import { checkTheme } from './theme.mjs'
+import { checkExerciseMedia } from './exercise-media.mjs'
+import { checkWorkoutFullscreen } from './workout-fullscreen.mjs'
 
 const browser = await chromium.launch({ headless: true })
 const baseURL = process.env.FORM_TEST_URL || 'http://localhost:5173'
@@ -26,6 +28,8 @@ const navigate = async name => {
 }
 
 try {
+  await checkWorkoutFullscreen(browser, baseURL)
+  await checkExerciseMedia(browser, baseURL)
   await checkWorkoutFeed(browser, baseURL)
   await checkTheme(browser, baseURL)
   await checkDetailedHistory(browser, baseURL)
@@ -78,8 +82,8 @@ try {
   await page.getByRole('combobox', { name: 'Filter exercises by muscle' }).selectOption('All muscles')
   await switchTo('Português do Brasil', 'pt-BR')
   await page.getByRole('textbox', { name: 'Buscar na biblioteca de exercícios' }).fill('inclinado')
-  await page.locator('.library-card').getByRole('button').click()
-  assert.equal(await page.locator('.library-card').getByRole('button').isDisabled(), true)
+  await page.locator('.library-card').getByRole('button', { name: /Adicionar a|^Em / }).click()
+  assert.equal(await page.locator('.library-card').getByRole('button', { name: /Adicionar a|^Em / }).isDisabled(), true)
 
   await navigate('Meu programa')
   for (const width of [320, 375, 480, 481, 768, 1440]) {

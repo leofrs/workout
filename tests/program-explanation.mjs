@@ -5,7 +5,10 @@ export async function checkProgramExplanation(browser, baseURL) {
   const page = await context.newPage()
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  const open = async () => { await page.getByRole('button', { name: 'Opções do programa', exact: true }).click(); await page.getByRole('button', { name: 'Entenda seu programa', exact: true }).click() }
+  const open = async () => {
+    const exit = page.getByRole('button', { name: 'Sair da tela cheia', exact: true })
+    if (await exit.isVisible()) await exit.click()
+    await page.getByRole('button', { name: 'Opções do programa', exact: true }).click(); await page.getByRole('button', { name: 'Entenda seu programa', exact: true }).click() }
   const stats = () => page.locator('.explanation-stats strong').allTextContents()
   const fit = page.locator('.explanation-fit')
   try {
