@@ -8,6 +8,14 @@ Interface criada exclusivamente com utilitários do **Tailwind CSS 3**, usando `
 
 Inclui layout responsivo, navegação mobile, cards de exercícios, biblioteca, histórico, sessões ativas e modais.
 
+## Feed de treino
+
+Ao abrir a área de treinamento, o app seleciona o treino previsto para o dia da semana e mostra sua categoria (superiores, inferiores ou corpo inteiro). Uma sessão em andamento tem prioridade, inclusive ao recarregar a página em outro dia. Nos dias sem treino previsto, o cartão identifica o treino selecionado, que pode ser alterado pelas abas.
+
+Em **Iniciar treino**, os exercícios aparecem em um feed vertical com encaixe de rolagem: uma ilustração ampliada, a prescrição e os registros de séries em cada cartão. Role para passar ao próximo exercício ou use os botões de navegação. Peso, repetições e conclusão ficam acessíveis sem expandir o cartão; a seta de detalhes abre dicas, variantes, anotações e histórico comparável.
+
+Marcar uma série como concluída inicia automaticamente o descanso prescrito. O cronômetro permanece na barra inferior durante a rolagem. A super-série sem descanso avança diretamente para o exercício seguinte. Os registros continuam salvos no navegador e entram no histórico ao finalizar.
+
 ## Programa atual
 
 O programa ativo é **V-Taper e Braços**, transcrito de [`treino_v_taper.md`](treino_v_taper.md): Superiores 1 na segunda, Inferiores e Core na terça, Superiores 2 na quinta e Corpo Inteiro na sexta. São 26 entradas de exercícios e 84 séries semanais, com a ordem, as alternativas, as faixas de repetições, os descansos e as observações do arquivo.

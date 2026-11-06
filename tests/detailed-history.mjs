@@ -19,7 +19,11 @@ export async function checkDetailedHistory(browser, baseURL) {
     await page.getByRole('navigation').getByRole('button', { name, exact: true }).click()
   }
   const close = page => page.getByRole('button', { name: 'Fechar janela', exact: true }).click()
-  const start = page => page.getByRole('button', { name: 'Iniciar treino', exact: true }).click()
+  const start = async page => {
+    await page.getByRole('button', { name: 'Iniciar treino', exact: true }).click()
+    // Notes and variants are optional details; the feed opens with the set controls.
+    await page.locator('.training-feed .exercise-open').first().click()
+  }
   const finish = async page => {
     await page.getByRole('button', { name: 'Finalizar treino', exact: true }).first().click()
     await page.getByRole('button', { name: 'Salvar e finalizar treino', exact: true }).click()

@@ -467,3 +467,65 @@
   .modal { @apply p-5; }
   .modal-search { @apply flex-col; }
 }
+
+/* Vertical workout feed. The set controls stay visible while extra details are optional. */
+@layer components {
+  .program-explainer { @apply mt-6; }
+  .workout-hero { @apply mb-6; }
+  .exercise-section { @apply mt-0; }
+  .exercise-list.feed-preview { @apply gap-5; }
+  .feed-art { @apply relative flex h-56 items-center justify-center overflow-hidden rounded-t-2xl bg-[#eaf0e3]; background-image: radial-gradient(ellipse at center, #f7faef 0%, #e0ead5 100%); }
+  .feed-art .exercise-art { @apply h-44 w-44 rounded-none bg-transparent p-0 text-[#36573c]; }
+  .feed-art-category { @apply absolute left-4 top-4 rounded-full bg-white/85 px-3 py-1.5 text-[10px] font-bold text-[#41613b]; }
+  .feed-art-number { @apply absolute right-4 top-5 text-[11px] font-bold tracking-wider text-[#73856a]; }
+  .feed-art-done { @apply absolute bottom-4 right-4 flex items-center gap-1.5 rounded-full bg-[#254531] px-3 py-1.5 text-[10px] font-bold text-[#d1f5a5]; }
+  .feed-preview .exercise-card-main { @apply min-h-28; }
+  .exercise-extra-details { @apply mt-4 border-t border-[#e7ece4] pt-4; }
+  .feed-toolbar { @apply flex min-h-14 flex-wrap items-center justify-between gap-2 rounded-t-2xl border border-b-0 border-[#dce7d3] bg-[#eff6e7] px-3 py-2; }
+  .feed-toolbar > div { @apply flex items-center gap-2; }
+  .feed-toolbar strong { @apply text-xs font-bold text-[#365333]; }
+  .feed-toolbar > div > span:last-child:not(.live-dot) { @apply text-[10px] text-[#6d8066]; }
+  .training-feed { @apply relative block overflow-y-auto rounded-b-2xl border border-[#dce7d3] bg-[#edf2e7]; height: calc(100svh - 168px); min-height: 420px; scroll-snap-type: y proximity; scroll-margin-top: 64px; overscroll-behavior-y: contain; scrollbar-width: thin; scrollbar-color: #adbf9d #edf2e7; }
+  .training-feed .exercise-card { @apply flex min-h-full flex-col rounded-none border-0 shadow-none; scroll-snap-align: start; }
+  .training-feed .exercise-card + .exercise-card { @apply border-t-8 border-[#edf2e7]; }
+  .training-feed .feed-art { @apply min-h-32 shrink-0 rounded-none; height: clamp(128px, 23svh, 260px); }
+  .training-feed .feed-art .exercise-art { @apply h-full max-h-56 w-full max-w-56 p-3; }
+  .training-feed .exercise-card-main { @apply min-h-24 shrink-0 flex-nowrap gap-2 px-4 py-3; }
+  .training-feed .exercise-open { @apply basis-auto; }
+  .training-feed .exercise-copy h3 { @apply text-base leading-snug; }
+  .training-feed .exercise-copy p { @apply mt-1 text-xs; }
+  .training-feed .exercise-copy .prescription-technique { @apply text-[10px]; }
+  .training-feed .exercise-card-main > .muscle-tag { @apply hidden; }
+  .training-feed .exercise-card-main > .exercise-options { @apply ml-0; }
+  .training-feed .exercise-card-main > .exercise-chevron { @apply ml-0; }
+  .training-feed .exercise-number { @apply hidden; }
+  .training-feed .exercise-details { @apply flex-1 px-3 pb-3 pt-3; }
+  .training-feed .set-table-row { @apply min-h-12; }
+  .training-feed .set-checkbox { @apply h-10 w-10; }
+  .training-feed .set-table-reps .set-table-header, .training-feed .set-table-reps .set-table-row { grid-template-columns: 24px minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr) 40px; }
+  .feed-card-footer { @apply mt-auto flex items-center justify-between gap-2 border-t border-[#edf1e9] px-4 py-3; }
+  .feed-card-footer > span { @apply text-[11px] font-medium text-[#75876c]; }
+  .feed-card-footer .text-button { @apply m-0 min-h-10 gap-2 text-xs; }
+  .has-session .toast { @apply bottom-28; }
+  .has-session .main-shell > main { @apply pb-28; }
+}
+
+@media (max-width: 480px) {
+  .feed-art { @apply h-48; }
+  .feed-toolbar > div { @apply gap-1.5; }
+  .feed-toolbar strong { @apply text-[11px]; }
+  .feed-toolbar > div > span:last-child:not(.live-dot) { @apply hidden; }
+  .feed-toolbar .icon-button { @apply h-8 w-8; }
+  .training-feed .exercise-card-main { @apply gap-1 px-3; }
+  .training-feed .exercise-copy h3 { @apply text-sm; }
+  .training-feed .exercise-card-main .icon-button { @apply h-8 w-8; }
+  .training-feed .exercise-copy .prescription-rest { @apply text-[10px]; }
+  .active-workout-bar { @apply flex-wrap; }
+  .active-workout-label { @apply min-w-0; }
+  .active-workout-bar .rest-timer { @apply order-3 w-full justify-center border-t border-[#49634a] pt-2; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+}

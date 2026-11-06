@@ -510,5 +510,17 @@
   "Evidence note: Studies show that leaving 1–3 reps in reserve produces muscle growth comparable to training to complete failure, with faster recovery and lower injury risk.": "Nota de evidência: estudos mostram que manter 1 a 3 repetições na reserva produz ganhos de hipertrofia semelhantes a treinar até a falha completa, com recuperação mais rápida e menor risco de lesão.",
   "Effort perception and RIR": "Percepção de esforço e RIR",
   "Repetitions in Reserve (RIR) indicates how many clean reps you estimate you could still perform before failure or breakdown. It is optional and subjective.": "As repetições na reserva (RIR) indicam quantas repetições a mais você estima que conseguiria fazer com boa postura antes de falhar ou perder o padrão técnico. O registro é opcional e subjetivo.",
-  "Evidence shows that keeping 1 to 3 reps in reserve produces hypertrophy comparable to training to complete muscular failure, with less central nervous system fatigue and faster recovery. Never force failure just to rate RIR.": "As evidências mostram que manter 1 a 3 repetições na reserva estimula a hipertrofia de forma comparável a treinar até a falha muscular completa, com menor fadiga do sistema nervoso central e recuperação mais rápida. Nunca force a falha apenas para registrar o RIR."
+  "Evidence shows that keeping 1 to 3 reps in reserve produces hypertrophy comparable to training to complete muscular failure, with less central nervous system fatigue and faster recovery. Never force failure just to rate RIR.": "As evidências mostram que manter 1 a 3 repetições na reserva estimula a hipertrofia de forma comparável a treinar até a falha muscular completa, com menor fadiga do sistema nervoso central e recuperação mais rápida. Nunca force a falha apenas para registrar o RIR.",
+  "TODAY’S WORKOUT": "TREINO DO DIA",
+  "SELECTED WORKOUT": "TREINO SELECIONADO",
+  "One exercise at a time. Scroll down to keep going.": "Um exercício por vez. Role para baixo para continuar.",
+  "Exercise {current} of {total}": "Exercício {current} de {total}",
+  "sets completed": "séries concluídas",
+  "Previous exercise": "Exercício anterior",
+  "Next exercise": "Próximo exercício",
+  "Review workout": "Revisar treino",
+  "Workout exercise feed": "Feed de exercícios do treino",
+  "Illustration of {exercise}": "Ilustração de {exercise}",
+  "Rest timer": "Cronômetro de descanso",
+  "Back to workout overview": "Voltar à visão geral do treino"
 }

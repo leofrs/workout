@@ -4,6 +4,7 @@ import { checkProgramExplanation } from './program-explanation.mjs'
 import { checkVTaper } from './v-taper.mjs'
 import { checkDetailedHistory } from './detailed-history.mjs'
 import { checkRir } from './rir.mjs'
+import { checkWorkoutFeed } from './workout-feed.mjs'
 
 const browser = await chromium.launch({ headless: true })
 const baseURL = process.env.FORM_TEST_URL || 'http://localhost:5173'
@@ -25,6 +26,7 @@ const navigate = async name => {
 }
 
 try {
+  await checkWorkoutFeed(browser, baseURL)
   await checkDetailedHistory(browser, baseURL)
   await checkRir(browser, baseURL)
   await checkVTaper(browser, baseURL)
