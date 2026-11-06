@@ -53,11 +53,11 @@ export function Anatomy({ muscles, compact = false }: { muscles: Muscle[]; compa
   return <div className={`anatomy ${compact ? 'anatomy-compact' : ''}`} aria-label={t('Muscles worked: {muscles}', { muscles: muscles.map(muscle => t(muscle)).join(', ') })}>
     {(['front', 'back'] as const).map(side => <div className="anatomy-view" key={side}>
       <svg viewBox="0 0 116 244" role="img" aria-label={t('{side} muscle diagram', { side: t(side) })}>
-        <ellipse cx="58" cy="16" rx="12" ry="15" fill="#555957" />
-        <path d="M49 27V37L58 42 67 37V27" fill="#474b48" />
-        <path d={outline} fill="#363b37" stroke="#111612" strokeWidth="1.2" />
-        {(side === 'front' ? frontParts : backParts).map((part, i) => <path key={i} d={part.d} fill={part.muscle && muscles.includes(part.muscle) ? '#c3f47a' : '#505750'} stroke="#263022" strokeWidth="1" strokeLinejoin="round" />)}
-        <path d="M58 43V113M33 176 40 177M76 177 83 176" fill="none" stroke="#252b25" strokeWidth="1.5" />
+        <ellipse cx="58" cy="16" rx="12" ry="15" fill="#525252" />
+        <path d="M49 27V37L58 42 67 37V27" fill="#404040" />
+        <path d={outline} fill="#363636" stroke="#171717" strokeWidth="1.2" />
+        {(side === 'front' ? frontParts : backParts).map((part, i) => <path key={i} d={part.d} fill={part.muscle && muscles.includes(part.muscle) ? 'rgb(var(--accent))' : '#525252'} stroke="#262626" strokeWidth="1" strokeLinejoin="round" />)}
+        <path d="M58 43V113M33 176 40 177M76 177 83 176" fill="none" stroke="#262626" strokeWidth="1.5" />
       </svg>
       <span>{t(side)}</span>
     </div>)}

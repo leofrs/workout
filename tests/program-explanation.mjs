@@ -5,7 +5,7 @@ export async function checkProgramExplanation(browser, baseURL) {
   const page = await context.newPage()
   const errors = []
   page.on('pageerror', error => errors.push(error.message))
-  const open = () => page.getByRole('button', { name: 'Entenda seu programa', exact: true }).click()
+  const open = async () => { await page.getByRole('button', { name: 'Opções do programa', exact: true }).click(); await page.getByRole('button', { name: 'Entenda seu programa', exact: true }).click() }
   const stats = () => page.locator('.explanation-stats strong').allTextContents()
   const fit = page.locator('.explanation-fit')
   try {
@@ -35,7 +35,7 @@ export async function checkProgramExplanation(browser, baseURL) {
     assert.match(await fit.innerText(), /Para criar constância/)
 
     await page.keyboard.press('Escape')
-    assert.ok(await page.getByRole('button', { name: 'Entenda seu programa', exact: true }).evaluate(element => element === document.activeElement))
+    assert.ok(await page.getByRole('button', { name: 'Opções do programa', exact: true }).isVisible())
     await page.reload()
     await open()
     assert.equal(await page.getByLabel('Seu objetivo de treino').inputValue(), 'consistency')
@@ -43,13 +43,8 @@ export async function checkProgramExplanation(browser, baseURL) {
     assert.equal(await page.getByLabel('Tempo por treino', { exact: true }).inputValue(), '75')
     await page.getByRole('button', { name: 'Voltar ao meu programa' }).click()
 
-    // Exercise edits must recalculate the explanation, including during a session.
-    await page.getByRole('button', { name: 'Expandir Agachamento búlgaro ou passada', exact: true }).click()
-    await page.getByLabel('Séries de Agachamento búlgaro ou passada', { exact: true }).selectOption('4')
-    await open()
-    assert.deepEqual(await stats(), ['4', '85', '3'])
-    await page.getByRole('row', { name: 'Quadríceps 11 2', exact: true }).waitFor()
-    await page.keyboard.press('Escape')
+    // Inspecting the explanation preserves an ongoing completion-only session.
+    await page.locator('.training-day-card').filter({ hasText: 'Corpo inteiro' }).click()
     await page.getByRole('button', { name: 'Iniciar treino', exact: true }).click()
     const sessionBefore = await page.evaluate(() => localStorage.getItem('form:session'))
     await open()
@@ -67,6 +62,7 @@ export async function checkProgramExplanation(browser, baseURL) {
     await page.screenshot({ path: '/tmp/form-program-explanation-mobile.png', fullPage: true })
     await page.keyboard.press('Escape')
     await page.getByRole('button', { name: 'English', exact: true }).click()
+    await page.getByRole('button', { name: 'Program options', exact: true }).click()
     await page.getByRole('button', { name: 'Understand your program', exact: true }).click()
     assert.match(await fit.innerText(), /Building consistency/)
     assert.match(await fit.innerText(), /exceed your 30-minute limit/)
@@ -84,6 +80,7 @@ export async function checkProgramExplanation(browser, baseURL) {
       localStorage.removeItem('form:session')
     })
     await page.reload()
+    await page.getByRole('button', { name: 'Program options', exact: true }).click()
     await page.getByRole('button', { name: 'Understand your program', exact: true }).click()
     assert.deepEqual(await stats(), ['1', '2', '6'])
     await page.getByRole('row', { name: 'Core 2 1', exact: true }).waitFor()
@@ -95,6 +92,7 @@ export async function checkProgramExplanation(browser, baseURL) {
       localStorage.setItem('form:days', JSON.stringify(days))
     })
     await page.reload()
+    await page.getByRole('button', { name: 'Program options', exact: true }).click()
     await page.getByRole('button', { name: 'Understand your program', exact: true }).click()
     assert.deepEqual(await stats(), ['0', '0', '7'])
     assert.match(await page.getByRole('dialog').innerText(), /Your program has no exercises yet/)
@@ -102,7 +100,7 @@ export async function checkProgramExplanation(browser, baseURL) {
     assert.doesNotMatch(await fit.innerText(), /schedule compatible|All planned sessions/)
     assert.equal(await page.locator('.explanation-table').count(), 0)
     assert.deepEqual(errors, [])
-    console.log('Passed: personalized program explanation, constraints, persistence, live edits, active session preservation, translations, mobile layout, and empty programs.')
+    console.log('Passed: personalized program explanation, constraints, persistence, active session preservation, translations, mobile layout, and empty programs.')
   } finally {
     await context.close()
   }

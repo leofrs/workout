@@ -21,8 +21,7 @@ export async function checkDetailedHistory(browser, baseURL) {
   const close = page => page.getByRole('button', { name: 'Fechar janela', exact: true }).click()
   const start = async page => {
     await page.getByRole('button', { name: 'Iniciar treino', exact: true }).click()
-    // Notes and variants are optional details; the feed opens with the set controls.
-    await page.locator('.training-feed .exercise-open').first().click()
+
   }
   const finish = async page => {
     await page.getByRole('button', { name: 'Finalizar treino', exact: true }).first().click()
@@ -51,21 +50,14 @@ export async function checkDetailedHistory(browser, baseURL) {
     // Legacy summaries survive independently of the new optional details.
     await page.evaluate(() => localStorage.setItem('form:history', JSON.stringify([{ id: 'legacy', name: 'Legacy workout', dayId: 'old', finishedAt: 1700000000000, seconds: 60, sets: 1, volume: 100, unit: 'kg', exercises: 1 }])))
     await page.reload()
-    await page.getByRole('button', { name: 'Adicionar anotação ao treino' }).click()
-    await page.getByLabel('Anotação do treino', { exact: true }).fill('Original day note')
+    await page.locator('.training-day-card').filter({ hasText: 'Corpo inteiro' }).click()
     await start(page)
-    await page.getByLabel('Agachamento búlgaro ou passada, série 1, peso', { exact: true }).fill('20.5')
-    await page.getByLabel('Agachamento búlgaro ou passada, série 1, repetições', { exact: true }).fill('11')
-    await page.getByLabel('Anotação de Agachamento búlgaro ou passada', { exact: true }).fill('Original exercise note')
     await page.getByRole('button', { name: 'Concluir Agachamento búlgaro ou passada, série 1', exact: true }).click()
-    assert.ok(await page.getByLabel('Variante de Agachamento búlgaro ou passada', { exact: true }).isDisabled())
+    await page.getByRole('button', { name: 'Pular descanso', exact: true }).click()
     await finish(page)
-    assert.match(await page.locator('.saved-sets-table').first().innerText(), /20,5/)
-    assert.match(await page.locator('.workout-details').innerText(), /Original day note/)
-    assert.match(await page.locator('.workout-details').innerText(), /Original exercise note/)
     const originalRecord = (await history(page))[0]
     assert.equal(originalRecord.details.exercises[0].variant.id, 'bulgarian')
-    assert.deepEqual(originalRecord.details.exercises[0].logs[0], { weight: '20.5', reps: '11', done: true })
+    assert.deepEqual(originalRecord.details.exercises[0].logs[0], { weight: '', reps: '12', done: true })
     assert.equal(originalRecord.details.exercises[0].logs[1].done, false)
     await close(page)
     await navigate(page, 'Histórico de treinos')
@@ -73,65 +65,15 @@ export async function checkDetailedHistory(browser, baseURL) {
     assert.match(await page.getByRole('dialog').innerText(), /Somente resumo: este treino foi salvo antes/)
     assert.equal(await page.locator('.saved-sets-table').count(), 0)
     await close(page)
-
-    await navigate(page, 'Meu programa')
-    await page.getByRole('button', { name: 'Expandir Agachamento búlgaro ou passada', exact: true }).click()
-    await page.getByLabel('Séries de Agachamento búlgaro ou passada', { exact: true }).selectOption('4')
-    assert.match(await page.locator('.previous-workout').innerText(), /20,5 kg × 11/)
-    await page.getByLabel('Variante de Agachamento búlgaro ou passada', { exact: true }).selectOption('lunge')
-    assert.match(await page.locator('.previous-workout').innerText(), /Ainda não há séries concluídas/)
-    await start(page)
-    assert.equal(await page.getByLabel('Agachamento búlgaro ou passada, série 1, peso', { exact: true }).inputValue(), '')
-    await page.getByLabel('Agachamento búlgaro ou passada, série 1, peso', { exact: true }).fill('15')
-    await page.getByRole('button', { name: 'Concluir Agachamento búlgaro ou passada, série 1', exact: true }).click()
-    await finish(page)
-    await close(page)
-    await page.getByRole('button', { name: 'Expandir Agachamento búlgaro ou passada', exact: true }).click()
-    await page.getByLabel('Variante de Agachamento búlgaro ou passada', { exact: true }).selectOption('bulgarian')
-    await start(page)
-    assert.equal(await page.getByLabel('Agachamento búlgaro ou passada, série 1, peso', { exact: true }).inputValue(), '20.5')
-    assert.equal(await page.getByLabel('Agachamento búlgaro ou passada, série 2, peso', { exact: true }).inputValue(), '')
-    assert.equal(await page.getByRole('button', { name: 'Concluir Agachamento búlgaro ou passada, série 1', exact: true }).getAttribute('aria-pressed'), 'false')
-    await page.getByLabel('Agachamento búlgaro ou passada, série 1, peso', { exact: true }).fill('21.5')
-    await page.getByLabel('Anotação de Agachamento búlgaro ou passada', { exact: true }).fill('New exercise note')
-    await page.getByRole('button', { name: 'Concluir Agachamento búlgaro ou passada, série 1', exact: true }).click()
+    // Later program edits never rewrite a saved prescription.
+    await page.evaluate(() => { const days = JSON.parse(localStorage.getItem('form:days')); days[3].exercises[0].sets = 4; localStorage.setItem('form:days', JSON.stringify(days)) })
     await page.reload()
-    await page.getByRole('button', { name: 'Expandir Agachamento búlgaro ou passada', exact: true }).click()
-    assert.equal(await page.getByLabel('Anotação de Agachamento búlgaro ou passada', { exact: true }).inputValue(), 'New exercise note')
-    await finish(page)
-    await close(page)
+    await page.locator('.training-day-card').filter({ hasText: 'Corpo inteiro' }).click()
+    await start(page)
+    assert.equal(await page.locator('[data-exercise-id="bulgarian-lunge"] .set-complete-button').count(), 4)
+    assert.equal(await page.locator('.simple-feed input, .simple-feed select').count(), 0)
+    await discard(page)
     assert.deepEqual((await history(page)).find(record => record.id === originalRecord.id), originalRecord)
-    assert.equal((await history(page))[0].details.exercises[0].prescription.sets, 4)
-
-    // Weight units never borrow references from each other.
-    await page.getByRole('button', { name: 'Editar perfil', exact: true }).click()
-    await page.getByLabel('Unidade de peso').selectOption('lb')
-    await page.getByRole('button', { name: 'Salvar preferências', exact: true }).click()
-    await start(page)
-    assert.equal(await page.getByLabel('Agachamento búlgaro ou passada, série 1, peso', { exact: true }).inputValue(), '')
-    assert.match(await page.locator('.previous-workout').innerText(), /Ainda não há séries concluídas/)
-    await discard(page)
-    await page.getByRole('button', { name: 'Editar perfil', exact: true }).click()
-    await page.getByLabel('Unidade de peso').selectOption('kg')
-    await page.getByRole('button', { name: 'Salvar preferências', exact: true }).click()
-
-    await page.getByRole('tab').filter({ hasText: 'Inferiores e Core' }).click()
-    await start(page)
-    await page.getByRole('button', { name: 'Expandir Prancha / infra suspenso', exact: true }).click()
-    await page.getByLabel('Forma de registro', { exact: true }).selectOption('seconds')
-    await page.getByRole('button', { name: 'Concluir Prancha / infra suspenso, série 1', exact: true }).click()
-    await finish(page)
-    const timedRecord = (await history(page))[0]
-    assert.equal(timedRecord.volume, 0)
-    assert.equal(timedRecord.details.exercises.find(exercise => exercise.variant.id === 'plank').logs[0].reps, '45')
-    await close(page)
-    await start(page)
-    await page.getByRole('button', { name: 'Expandir Prancha / infra suspenso', exact: true }).click()
-    assert.match(await page.locator('.previous-workout').last().innerText(), /45 segundos/)
-    await page.getByLabel('Forma de registro', { exact: true }).selectOption('reps')
-    assert.match(await page.locator('.previous-workout').last().innerText(), /Ainda não há séries concluídas/)
-    assert.equal(await page.getByLabel('Prancha / infra suspenso, série 1, repetições', { exact: true }).inputValue(), '20')
-    await discard(page)
 
     await openBackup(page)
     const backup = await download(page, '/tmp/form-detailed-history-backup.json')
@@ -191,6 +133,7 @@ export async function checkDetailedHistory(browser, baseURL) {
     assert.deepEqual(await target.evaluate(() => JSON.parse(localStorage.getItem('form:days'))), backup.data.days)
     assert.deepEqual(await history(target), backup.data.history)
     // A backup from someone who never filled in training context is valid too.
+    await target.getByRole('button', { name: 'Opções do programa', exact: true }).click()
     await target.getByRole('button', { name: 'Entenda seu programa', exact: true }).click()
     await target.getByRole('dialog', { name: 'Entenda seu programa', exact: true }).waitFor()
     assert.equal(await target.getByLabel('Seu objetivo de treino', { exact: true }).inputValue(), '')
@@ -198,9 +141,9 @@ export async function checkDetailedHistory(browser, baseURL) {
 
     // Export includes an active session. Import cannot replace a live session.
     await navigate(page, 'Meu programa')
-    await page.getByRole('tab').filter({ hasText: 'Corpo inteiro' }).click()
+    await page.locator('.training-day-card').filter({ hasText: 'Corpo inteiro' }).click()
     await start(page)
-    await page.getByLabel('Agachamento búlgaro ou passada, série 1, peso', { exact: true }).fill('31')
+
     await openBackup(page)
     const activeBackup = await download(page, '/tmp/form-active-session-backup.json')
     await upload(page, backup)
@@ -213,15 +156,17 @@ export async function checkDetailedHistory(browser, baseURL) {
     await target.getByRole('button', { name: 'Confirmar importação', exact: true }).click()
     await target.getByRole('heading', { name: 'V-Taper e Braços', exact: true }).waitFor()
     assert.deepEqual(await target.evaluate(() => JSON.parse(localStorage.getItem('form:session'))), activeBackup.data.session)
-    await target.getByRole('button', { name: 'Expandir Agachamento búlgaro ou passada', exact: true }).click()
-    assert.equal(await target.getByLabel('Agachamento búlgaro ou passada, série 1, peso', { exact: true }).inputValue(), '31')
+    await target.locator('.training-day-card').filter({ hasText: 'Corpo inteiro' }).click()
+    assert.equal(await target.locator('.simple-feed input, .simple-feed select').count(), 0)
     await target.setViewportSize({ width: 320, height: 750 })
     assert.ok(await target.evaluate(() => document.documentElement.scrollWidth <= innerWidth))
     await target.screenshot({ path: '/tmp/form-history-reference-mobile.png', fullPage: true })
 
     // If completing a workout cannot be persisted, keep it open and allow memory export.
     await navigate(page, 'Meu programa')
+    await page.locator('.training-day-card').filter({ hasText: 'Corpo inteiro' }).click()
     await page.getByRole('button', { name: 'Concluir Agachamento búlgaro ou passada, série 1', exact: true }).click()
+    await page.getByRole('button', { name: 'Pular descanso', exact: true }).click()
     const countBefore = (await history(page)).length
     await page.evaluate(() => {
       window.originalSetItem = Storage.prototype.setItem
@@ -242,6 +187,7 @@ export async function checkDetailedHistory(browser, baseURL) {
     await page.evaluate(() => { Storage.prototype.setItem = window.originalSetItem })
     await close(page)
     await navigate(page, 'Meu programa')
+    await page.locator('.training-day-card').filter({ hasText: 'Corpo inteiro' }).click()
     // A failure clearing the session after writing history must undo that history write.
     const beforeClearFailure = await history(page)
     await page.evaluate(() => {
@@ -264,13 +210,12 @@ export async function checkDetailedHistory(browser, baseURL) {
     const legacyPage = await fresh()
     await legacyPage.evaluate(() => localStorage.setItem('form:session', JSON.stringify({ dayId: 'full-body', name: 'Full Body', startedAt: Date.now(), logs: { 'bulgarian-lunge': [{ weight: '22', reps: '10', done: true }] } })))
     await legacyPage.reload()
-    await legacyPage.getByRole('button', { name: 'Expandir Agachamento búlgaro ou passada', exact: true }).click()
-    assert.equal(await legacyPage.getByLabel('Variante de Agachamento búlgaro ou passada', { exact: true }).inputValue(), 'unrecorded')
+    await legacyPage.locator('.training-day-card').filter({ hasText: 'Corpo inteiro' }).click()
     await finish(legacyPage)
     assert.equal((await history(legacyPage))[0].details.recovered, true)
     assert.match(await legacyPage.locator('.workout-details').innerText(), /Variante não registrada/)
     assert.deepEqual(errors, [])
-    console.log('Passed: detailed history, immutable prescriptions, legacy summaries, variant/unit references, editable prefill, timed sets, notes, backups, validation, deduplication, restore rollback, active-session protection and storage failure recovery.')
+    console.log('Passed: detailed history, immutable prescriptions, legacy summaries/sessions, backups, validation, deduplication, restore rollback, active-session protection and storage failure recovery.')
   } finally {
     for (const context of contexts) await context.close()
   }
